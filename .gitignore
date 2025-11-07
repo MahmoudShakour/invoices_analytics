@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+
+# Django-specific files
+*.log
+*.pot
+db.sqlite3
+local_settings.py  # Or any other local settings file not meant for version control
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Media and static files (if not served from a separate location)
+media/
+static/
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.swp
+*.bak
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Testing and coverage reports
+.tox/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Deployment files
+*.tar.gz
+*.zip
+
+# User-uploaded files (if applicable)
+# For example, if you have a specific folder for user uploads:
+# uploads/
