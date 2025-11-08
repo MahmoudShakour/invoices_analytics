@@ -1,0 +1,80 @@
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum
+from ..models import Invoice
+from ..services.currency_converter import convert_currency
+
+class InvoiceRevenueSummaryAPIView(APIView):
+    """
+    Get total revenue summary for invoices with currency conversion options
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        Get total revenue summary
+        Query parameters:
+        - rate: 'historic' (default) or 'current'
+        """
+        try:
+            rate_type = request.GET.get('rate', 'historic').lower()
+            
+            if rate_type not in ['historic', 'current']:
+                return Response(
+                    {"error": "rate must be either 'historic' or 'current'"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            success, data, error = self._get_revenue(request.user.account, rate_type)
+            
+            if not success:
+                return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"Unexpected error: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    def _get_revenue(self, account, rate_type):
+        """
+        Calculate revenue using historic exchange rates from database
+        """
+        
+        try:
+            
+            #  if rate_type is historic, sum converted amount and the rate is already applied
+            if rate_type == 'historic':
+                total_revenue = Invoice.objects.filter(account=account).aggregate(
+                    total_revenue=Sum('converted_amount')
+                )['total_revenue'] or 0
+
+            # if the rate_type is current, group by the original_currency, sum(original_amount) and compute it programatically.
+            else:
+                currency_groups = Invoice.objects.filter(account=account).values(
+                    'original_currency'
+                ).annotate(total_original_amount=Sum('original_amount'))
+                
+                total_revenue = 0
+                for group in currency_groups:
+                    currency = group['original_currency']
+                    amount = group['total_original_amount']
+                    
+                    if currency == 'USD':
+                        total_revenue += amount
+                    else:
+                        converted_amount, _ = convert_currency(float(amount), currency, 'USD')    
+                        total_revenue += converted_amount
+
+            return True, {
+                'total_revenue': str(total_revenue),
+                'currency': 'USD',
+                'rate_type': rate_type
+            }, None
+                
+        except Exception as e:
+            return False, None, f"Currency conversion failed: {str(e)}"

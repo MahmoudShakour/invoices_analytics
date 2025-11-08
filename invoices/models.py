@@ -46,4 +46,4 @@ class Invoice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Invoice #{self.id} ({self.currency})"
+        return f"Invoice #{self.id} ({self.original_currency})"
