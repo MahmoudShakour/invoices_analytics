@@ -162,3 +162,7 @@ EXCHANGE_RATE_API_KEY = os.getenv('EXCHANGE_RATE_API_KEY')
 EXCHANGE_RATE_BASE_URL = 'https://v6.exchangerate-api.com/v6'
 
 CACHE_EXPIRY = 300
+
+# analytics configuration
+
+CONVERSION_FEE_PERCENT = float(os.getenv('CONVERSION_FEE_PERCENT', 2))

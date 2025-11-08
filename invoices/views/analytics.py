@@ -1,8 +1,9 @@
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from ..models import Invoice
 from ..services.currency_converter import convert_currency
 
@@ -39,6 +40,7 @@ class InvoiceRevenueSummaryAPIView(APIView):
                 {"error": f"Unexpected error: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
         
     def _get_revenue(self, account, rate_type):
         """
@@ -78,3 +80,86 @@ class InvoiceRevenueSummaryAPIView(APIView):
                 
         except Exception as e:
             return False, None, f"Currency conversion failed: {str(e)}"
+        
+
+class InvoiceRevenueAverageSizeAPIView(APIView):
+    def get(self, request):
+        """
+        Get average invoice size
+        Query parameters:
+        - currency: target currency (default: USD)
+        """
+        target_currency = request.GET.get('currency', 'USD').upper()
+        
+        if len(target_currency) != 3:
+            return Response(
+                {"error": "Currency must be a 3-letter code"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        success, data, error = self.calculate_average_invoice_size(
+            request.user.account, 
+            target_currency
+        )
+        
+        if not success:
+            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data, status=status.HTTP_200_OK)
+
+        
+    def calculate_average_invoice_size(self,account, target_currency):
+        """
+        Calculate sum(original_amount)/count(id) of specified account in the specified currency
+        """
+        try:
+            currency_stats = Invoice.objects.filter(account=account).values(
+                'original_currency'
+            ).annotate(
+                total_amount=Sum('original_amount'),
+                invoice_count=Count('id')
+            )
+            
+            if not currency_stats:
+                return True, {
+                    'average_amount': '0.00',
+                    'currency': target_currency,
+                    'invoice_count': 0
+                }, None
+            
+            total_converted = 0
+            total_fees = 0
+            number_of_invoices = 0
+            
+            conversion_fee_percent = getattr(settings, 'CONVERSION_FEE_PERCENT', 2)
+            
+            for group in currency_stats:
+                currency = group['original_currency']
+                amount = group['total_amount']
+                count = group['invoice_count']
+                
+                converted_amount, _ = convert_currency(
+                    float(amount), currency, target_currency
+                )
+                
+                total_converted += converted_amount
+                number_of_invoices += count
+                
+                if currency != target_currency:
+                    total_fees += ( converted_amount * conversion_fee_percent ) / 100
+            
+            average_amount = total_converted / number_of_invoices
+            average_amount_after_fees = ( total_converted - total_fees ) / number_of_invoices
+            
+            
+            return True, {
+                'average_size_before_fees': str(round(average_amount, 2)),
+                'average_size_after_fees': str(round(average_amount_after_fees, 2)),
+                'gross_revenue': str(round(total_converted, 2)),
+                'net_revenue': str(round(total_converted-total_fees, 2)),
+                'currency': target_currency,
+                'invoice_count': number_of_invoices,
+            }, None
+            
+        except Exception as e:
+            return False, None, f"Average calculation failed: {str(e)}"
