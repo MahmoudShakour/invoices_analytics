@@ -18,12 +18,13 @@ from django.contrib import admin
 from django.urls import path
 from .views.crud import InvoiceListCreateAPIView, InvoiceDetailAPIView
 from .views.exchange_rate import InvoiceExchangeRateAPIView
-from .views.analytics import InvoiceRevenueSummaryAPIView
+from .views.analytics import InvoiceRevenueSummaryAPIView, InvoiceRevenueAverageSizeAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('invoices/', InvoiceListCreateAPIView.as_view(), name='invoice-list-create'),
     path('invoices/<int:pk>/', InvoiceDetailAPIView.as_view(), name='invoice-detail'),
     path('invoices/<int:pk>/exchange-rate/', InvoiceExchangeRateAPIView.as_view(), name='invoice-detail'),
-    path('invoices/summary/', InvoiceRevenueSummaryAPIView.as_view(), name='invoice-analytics'),
+    path('invoices/summary/', InvoiceRevenueSummaryAPIView.as_view(), name='invoice-summary'),
+    path('invoices/average-size/', InvoiceRevenueAverageSizeAPIView.as_view(), name='invoice-average-size'),
 ]
