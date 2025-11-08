@@ -16,10 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from .views import InvoiceListCreateAPIView, InvoiceDetailAPIView
+from .views.crud import InvoiceListCreateAPIView, InvoiceDetailAPIView
+from .views.exchange_rate import InvoiceExchangeRateAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('invoices/', InvoiceListCreateAPIView.as_view(), name='invoice-list-create'),
     path('invoices/<int:pk>/', InvoiceDetailAPIView.as_view(), name='invoice-detail'),
+    path('invoices/<int:pk>/exchange-rate', InvoiceExchangeRateAPIView.as_view(), name='invoice-detail'),
 ]
