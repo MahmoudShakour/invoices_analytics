@@ -21,7 +21,7 @@ class InvoiceListCreateAPIView(APIView):
     def post(self, request):
         """Create a new invoice for the user's account"""
         data = request.data.copy()
-        serializer = InvoiceCreateSerializer(data=data,context={'account': request.user.account_id})
+        serializer = InvoiceCreateSerializer(data=data,context={'account': request.user.account})
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
