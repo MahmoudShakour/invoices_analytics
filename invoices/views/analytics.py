@@ -9,7 +9,8 @@ from ..services.currency_converter import convert_currency
 
 class InvoiceRevenueSummaryAPIView(APIView):
     """
-    Get total revenue summary for invoices with currency conversion options
+    Get total revenue summary for invoices with exchange rate options.
+    Returned total revenue always in USD.
     """
     permission_classes = [IsAuthenticated]
     
@@ -44,10 +45,12 @@ class InvoiceRevenueSummaryAPIView(APIView):
         
     def _get_revenue(self, account, rate_type):
         """
-        Calculate revenue using historic exchange rates from database
+        Calculate revenue using historic exchange rates from database or currency exchange rates. 
         """
         
         try:
+            
+            total_revenue = 0
             
             #  if rate_type is historic, sum converted amount and the rate is already applied
             if rate_type == 'historic':
@@ -61,16 +64,12 @@ class InvoiceRevenueSummaryAPIView(APIView):
                     'original_currency'
                 ).annotate(total_original_amount=Sum('original_amount'))
                 
-                total_revenue = 0
                 for group in currency_groups:
                     currency = group['original_currency']
                     amount = group['total_original_amount']
                     
-                    if currency == 'USD':
-                        total_revenue += amount
-                    else:
-                        converted_amount, _ = convert_currency(float(amount), currency, 'USD')    
-                        total_revenue += converted_amount
+                    converted_amount, _ = convert_currency(float(amount), currency, 'USD')    
+                    total_revenue += converted_amount
 
             return True, {
                 'total_revenue': str(total_revenue),
@@ -85,7 +84,10 @@ class InvoiceRevenueSummaryAPIView(APIView):
 class InvoiceRevenueAverageSizeAPIView(APIView):
     def get(self, request):
         """
-        Get average invoice size
+        Get average invoice size.
+        Fees is applied only if the invoice currency and target currency are different.
+        Only Current exchange rates are applied. 
+        
         Query parameters:
         - currency: target currency (default: USD)
         """
@@ -97,7 +99,7 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        success, data, error = self.calculate_average_invoice_size(
+        success, data, error = self._calculate_average_invoice_size(
             request.user.account, 
             target_currency
         )
@@ -108,9 +110,9 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
         
-    def calculate_average_invoice_size(self,account, target_currency):
+    def _calculate_average_invoice_size(self,account, target_currency):
         """
-        Calculate sum(original_amount)/count(id) of specified account in the specified currency
+        Calculate average invoice size of specified account in the specified currency.
         """
         try:
             currency_stats = Invoice.objects.filter(account=account).values(
@@ -127,7 +129,7 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
                     'invoice_count': 0
                 }, None
             
-            total_converted = 0
+            total_revenue = 0
             total_fees = 0
             number_of_invoices = 0
             
@@ -142,21 +144,21 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
                     float(amount), currency, target_currency
                 )
                 
-                total_converted += converted_amount
+                total_revenue += converted_amount
                 number_of_invoices += count
                 
                 if currency != target_currency:
                     total_fees += ( converted_amount * conversion_fee_percent ) / 100
             
-            average_amount = total_converted / number_of_invoices
-            average_amount_after_fees = ( total_converted - total_fees ) / number_of_invoices
+            average_amount = total_revenue / number_of_invoices
+            average_amount_after_fees = ( total_revenue - total_fees ) / number_of_invoices
             
             
             return True, {
                 'average_size_before_fees': str(round(average_amount, 2)),
                 'average_size_after_fees': str(round(average_amount_after_fees, 2)),
-                'gross_revenue': str(round(total_converted, 2)),
-                'net_revenue': str(round(total_converted-total_fees, 2)),
+                'gross_revenue': str(round(total_revenue, 2)),
+                'net_revenue': str(round(total_revenue-total_fees, 2)),
                 'currency': target_currency,
                 'invoice_count': number_of_invoices,
             }, None

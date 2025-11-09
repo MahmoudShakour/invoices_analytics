@@ -10,15 +10,11 @@ class InvoiceCreateSerializer(BaseInvoiceSerializer):
         original_currency = validated_data['original_currency']
         original_amount = float(validated_data['original_amount'])
         
-        if original_currency.upper() == 'USD':
-            converted_amount = original_amount
-            exchange_rate = 1.0
-        else:
-            converted_amount, exchange_rate = convert_currency(
-                original_amount, 
-                original_currency, 
-                'USD'
-            )
+        converted_amount, exchange_rate = convert_currency(
+            original_amount, 
+            original_currency,
+            'USD'
+        )
         
         return Invoice.objects.create(
             account=account,
