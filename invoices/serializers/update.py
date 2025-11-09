@@ -12,17 +12,13 @@ class InvoiceUpdateSerializer(BaseInvoiceSerializer):
         
         if (original_currency != instance.original_currency or 
             original_amount != instance.original_amount):
-            
-            if original_currency.upper() == 'USD':
-                converted_amount = original_amount
-                exchange_rate = 1.0
-            else:
-                converted_amount, exchange_rate = convert_currency(
-                    original_amount, 
-                    original_currency, 
-                    'USD'
-                )
-            
+             
+            converted_amount, exchange_rate = convert_currency(
+                original_amount, 
+                original_currency, 
+                'USD'
+            )
+                
             instance.converted_amount = converted_amount
             instance.exchange_rate = exchange_rate
         

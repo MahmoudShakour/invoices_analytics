@@ -66,11 +66,8 @@ class InvoiceRevenueSummaryAPIView(APIView):
                     currency = group['original_currency']
                     amount = group['total_original_amount']
                     
-                    if currency == 'USD':
-                        total_revenue += amount
-                    else:
-                        converted_amount, _ = convert_currency(float(amount), currency, 'USD')    
-                        total_revenue += converted_amount
+                    converted_amount, _ = convert_currency(float(amount), currency, 'USD')    
+                    total_revenue += converted_amount
 
             return True, {
                 'total_revenue': str(total_revenue),
@@ -97,7 +94,7 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        success, data, error = self.calculate_average_invoice_size(
+        success, data, error = self._calculate_average_invoice_size(
             request.user.account, 
             target_currency
         )
@@ -108,7 +105,7 @@ class InvoiceRevenueAverageSizeAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
         
-    def calculate_average_invoice_size(self,account, target_currency):
+    def _calculate_average_invoice_size(self,account, target_currency):
         """
         Calculate sum(original_amount)/count(id) of specified account in the specified currency
         """
