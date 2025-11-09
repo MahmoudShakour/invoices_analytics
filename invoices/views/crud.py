@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+
+from invoices.permissions import IsInvoiceAccountOwner
 from ..models import Invoice
 from ..serializers import InvoiceSerializer, InvoiceCreateSerializer, InvoiceUpdateSerializer
 
@@ -12,14 +14,14 @@ class InvoiceListCreateAPIView(APIView):
     
     def get(self, request):
         """Get all invoices for the user's account"""
-        invoices = Invoice.objects.filter(account_id=request.user.account.id)
+        invoices = Invoice.objects.filter(account_id=request.user.account_id)
         serializer = InvoiceSerializer(invoices, many=True)
         return Response(serializer.data)
     
     def post(self, request):
         """Create a new invoice for the user's account"""
         data = request.data.copy()
-        serializer = InvoiceCreateSerializer(data=data,context={'account': request.user.account})
+        serializer = InvoiceCreateSerializer(data=data,context={'account': request.user.account_id})
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -31,29 +33,24 @@ class InvoiceListCreateAPIView(APIView):
         
 
 class InvoiceDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInvoiceAccountOwner]
     
-    def get_invoice(self, pk, user_account):
-        """Get invoice and check if it belongs to user's account"""
+    def _get_invoice(self, pk):
+        """Get invoice object"""
         invoice = get_object_or_404(Invoice, pk=pk)
-        if invoice.account.id != user_account.id:
-            return None, "You don't have permission to access this invoice"
-        return invoice, None
+        self.check_object_permissions(self.request, invoice)
+        return invoice
     
     def get(self, request, pk):
         """Retrieve a specific invoice"""
-        invoice, error = self.get_invoice(pk, request.user.account)
-        if error:
-            return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+        invoice = self._get_invoice(pk)
         
         serializer = InvoiceSerializer(invoice)
         return Response(serializer.data)
     
     def put(self, request, pk):
         """Update a specific invoice"""
-        invoice, error = self.get_invoice(pk, request.user.account)
-        if error:
-            return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+        invoice = self._get_invoice(pk)
         
         data = request.data.copy()
         
@@ -67,9 +64,7 @@ class InvoiceDetailAPIView(APIView):
     
     def delete(self, request, pk):
         """Delete a specific invoice"""
-        invoice, error = self.get_invoice(pk, request.user.account)
-        if error:
-            return Response({"error": error}, status=status.HTTP_403_FORBIDDEN)
+        invoice = self._get_invoice(pk)
         
         invoice.delete()
         
